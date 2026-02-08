@@ -1,69 +1,51 @@
 import React, { useState } from "react";
 import { AppProvider, useApp } from "./context/AppContext";
-import FacultyForm from "./components/forms/FacultyForm";
-import CourseForm from "./components/forms/CourseForm";
-import RoomForm from "./components/forms/RoomForm";
-import TimetableGrid from "./components/timetable/TimetableGrid";
+import LandingPage from "./components/pages/LandingPage";
+import LoginPage from "./components/pages/LoginPage";
+import RegisterPage from "./components/pages/RegisterPage";
+import AdminDashboard from "./components/dashboards/AdminDashboard";
+import FacultyDashboard from "./components/dashboards/FacultyDashboard";
+import StudentDashboard from "./components/dashboards/StudentDashboard";
 import "./styles.css";
 
-function AppContent() {
-    const { generateTimetable } = useApp();
-    const [activeTab, setActiveTab] = useState("dashboard");
+function MainContent() {
+    const [view, setView] = useState('landing');
+    const { userRole, setUserRole, setCurrentUser } = useApp();
+
+    const handleLogin = (role, user) => {
+        setUserRole(role);
+        setCurrentUser(user);
+        setView('dashboard');
+    };
+
+    const handleLogout = () => {
+        setUserRole(null);
+        setCurrentUser(null);
+        setView('login');
+    };
 
     return (
-        <div className="page">
-            <div className="header">
-                🎓 Timetable Scheduler
-            </div>
+        <>
+            {view === 'landing' && <LandingPage onGetStarted={() => setView('login')} />}
 
-            <div className="card">
-                <div className="btnRow">
-                    <button className={activeTab === 'dashboard' ? 'primary' : 'btn'} onClick={() => setActiveTab('dashboard')}>
-                        Dashboard
-                    </button>
-                    <button className={activeTab === 'forms' ? 'primary' : 'btn'} onClick={() => setActiveTab('forms')}>
-                        Manage Data
-                    </button>
-                    <button className={activeTab === 'timetable' ? 'primary' : 'btn'} onClick={() => setActiveTab('timetable')}>
-                        📋 View Result
-                    </button>
-                    <button className="primary" onClick={() => {
-                        generateTimetable();
-                        setActiveTab('timetable');
-                    }}>
-                        🚀 Generate New
-                    </button>
-                </div>
-            </div>
+            {view === 'login' && <LoginPage onLogin={handleLogin} onNavigate={setView} />}
+            {view === 'register' && <RegisterPage onNavigate={setView} />}
 
-            {activeTab === 'forms' && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
-                    <FacultyForm />
-                    <CourseForm />
-                    <RoomForm />
-                </div>
+            {view === 'dashboard' && (
+                <>
+                    {userRole === 'admin' && <AdminDashboard onLogout={handleLogout} />}
+                    {userRole === 'faculty' && <FacultyDashboard onLogout={handleLogout} />}
+                    {userRole === 'student' && <StudentDashboard onLogout={handleLogout} />}
+                </>
             )}
-
-            {activeTab === 'timetable' && (
-                <TimetableGrid />
-            )}
-
-            {activeTab === 'dashboard' && (
-                <div className="card">
-                    <h2 className="cardTitle">Welcome</h2>
-                    <p>Select "Manage Data" to add Faculties, Courses, and Rooms.</p>
-                    <p>Select "View Timetable" to see the generated schedule.</p>
-                    <p>Click "Generate New" to run the scheduling algorithm.</p>
-                </div>
-            )}
-        </div>
+        </>
     );
 }
 
 export default function App() {
     return (
         <AppProvider>
-            <AppContent />
+            <MainContent />
         </AppProvider>
     );
 }
