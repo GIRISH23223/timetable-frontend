@@ -42,10 +42,48 @@ interface TimetableEntry {
     };
 }
 
+import TimetableCalendar from '@/components/timetable/TimetableCalendar';
+
 export default function TimetablePage() {
     const [timetable, setTimetable] = useState<TimetableEntry[]>([]);
     const [loading, setLoading] = useState(true);
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+    const [view, setView] = useState<'list' | 'calendar'>('list');
+
+    // Helper to get nearest occurrence of a day
+    const getNextDate = (dayName: string) => {
+        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const dayIndex = days.indexOf(dayName);
+        const today = new Date();
+        const currentDayIndex = today.getDay();
+
+        let daysUntil = dayIndex - currentDayIndex;
+        if (daysUntil <= 0) daysUntil += 7; // Move to next week if day has passed or is today
+
+        const nextDate = new Date(today);
+        nextDate.setDate(today.getDate() + daysUntil);
+        return nextDate.toISOString().split('T')[0];
+    };
+
+    const calendarEvents = timetable.map(entry => {
+        if (!entry.timeslot) return null;
+
+        // We map the abstract "Monday" to the *next* Monday on the calendar
+        const dateStr = getNextDate(entry.day);
+
+        return {
+            id: entry._id,
+            title: `${entry.course?.code} - ${entry.section?.name}`,
+            start: `${dateStr}T${entry.timeslot.startTime}`,
+            end: `${dateStr}T${entry.timeslot.endTime}`,
+            extendedProps: {
+                room: entry.room?.name,
+                faculty: entry.faculty?.name
+            },
+            backgroundColor: '#3C50E0',
+            borderColor: '#3C50E0'
+        };
+    }).filter(Boolean);
 
     useEffect(() => {
         fetchTimetable();
@@ -188,53 +226,81 @@ export default function TimetablePage() {
                 </div>
             )}
 
-            <div className="overflow-x-auto">
-                <Table>
-                    <TableHeader className="bg-gray-50 dark:bg-gray-800">
-                        <TableRow>
-                            <TableCell isHeader className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Day</TableCell>
-                            <TableCell isHeader className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</TableCell>
-                            <TableCell isHeader className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Section</TableCell>
-                            <TableCell isHeader className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Course</TableCell>
-                            <TableCell isHeader className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Faculty</TableCell>
-                            <TableCell isHeader className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Room</TableCell>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {timetable.length > 0 ? (
-                            timetable.map((entry, index) => (
-                                <TableRow key={index}>
-                                    <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 font-medium">
-                                        {entry.day}
-                                    </TableCell>
-                                    <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                        {entry.timeslot?.startTime || 'N/A'} - {entry.timeslot?.endTime || 'N/A'}
-                                    </TableCell>
-                                    <TableCell className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600 dark:text-blue-400">
-                                        {entry.section?.name}
-                                    </TableCell>
-                                    <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                        <div>{entry.course?.name}</div>
-                                        <div className="text-xs text-gray-400">{entry.course?.code}</div>
-                                    </TableCell>
-                                    <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                        {entry.faculty?.name}
-                                    </TableCell>
-                                    <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                        {entry.room?.name}
+            {/* View Toggle */}
+            <div className="flex justify-end mb-4">
+                <div className="bg-gray-100 p-1 rounded-lg flex dark:bg-gray-800">
+                    <button
+                        onClick={() => setView('list')}
+                        className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${view === 'list'
+                            ? 'bg-white text-blue-600 shadow-sm dark:bg-gray-700 dark:text-blue-400'
+                            : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
+                            }`}
+                    >
+                        List View
+                    </button>
+                    <button
+                        onClick={() => setView('calendar')}
+                        className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${view === 'calendar'
+                            ? 'bg-white text-blue-600 shadow-sm dark:bg-gray-700 dark:text-blue-400'
+                            : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
+                            }`}
+                    >
+                        Calendar View
+                    </button>
+                </div>
+            </div>
+
+            {view === 'list' ? (
+                <div className="overflow-x-auto">
+                    <Table>
+                        <TableHeader className="bg-gray-50 dark:bg-gray-800">
+                            <TableRow>
+                                <TableCell isHeader className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Day</TableCell>
+                                <TableCell isHeader className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</TableCell>
+                                <TableCell isHeader className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Section</TableCell>
+                                <TableCell isHeader className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Course</TableCell>
+                                <TableCell isHeader className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Faculty</TableCell>
+                                <TableCell isHeader className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Room</TableCell>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {timetable.length > 0 ? (
+                                timetable.map((entry, index) => (
+                                    <TableRow key={index}>
+                                        <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 font-medium">
+                                            {entry.day}
+                                        </TableCell>
+                                        <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                            {entry.timeslot?.startTime || 'N/A'} - {entry.timeslot?.endTime || 'N/A'}
+                                        </TableCell>
+                                        <TableCell className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600 dark:text-blue-400">
+                                            {entry.section?.name}
+                                        </TableCell>
+                                        <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                            <div>{entry.course?.name}</div>
+                                            <div className="text-xs text-gray-400">{entry.course?.code}</div>
+                                        </TableCell>
+                                        <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                            {entry.faculty?.name}
+                                        </TableCell>
+                                        <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                            {entry.room?.name}
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            ) : (
+                                <TableRow>
+                                    <TableCell className="px-6 py-8 text-center text-gray-500 dark:text-gray-400" colSpan={6}>
+                                        No timetable generated. Click "Generate Timetable" to start.
                                     </TableCell>
                                 </TableRow>
-                            ))
-                        ) : (
-                            <TableRow>
-                                <TableCell className="px-6 py-8 text-center text-gray-500 dark:text-gray-400" colSpan={6}>
-                                    No timetable generated. Click "Generate Timetable" to start.
-                                </TableCell>
-                            </TableRow>
-                        )}
-                    </TableBody>
-                </Table>
-            </div>
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
+            ) : (
+                <TimetableCalendar events={calendarEvents} />
+            )}
         </div>
     );
 }
